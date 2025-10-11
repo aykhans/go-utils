@@ -1,0 +1,41 @@
+# https://taskfile.dev
+version: "3"
+
+vars:
+  BIN_DIR: ./bin
+  GOLANGCI_LINT_VERSION: v2.5.0
+
+tasks:
+  ftl:
+    cmds:
+      - task: fmt
+      - task: tidy
+      - task: lint
+
+  tidy: go mod tidy {{.CLI_ARGS}}
+
+  test: go test ./... {{.CLI_ARGS}}
+
+  fmt:
+    desc: Run linters
+    deps:
+      - install-golangci-lint
+    cmds:
+      - "{{.BIN_DIR}}/golangci-lint-{{.GOLANGCI_LINT_VERSION}} fmt"
+
+  lint:
+    desc: Run linters
+    deps:
+      - install-golangci-lint
+    cmds:
+      - "{{.BIN_DIR}}/golangci-lint-{{.GOLANGCI_LINT_VERSION}} run"
+
+  install-golangci-lint:
+    desc: Install golangci-lint
+    status:
+      - test -f {{.BIN_DIR}}/golangci-lint-{{.GOLANGCI_LINT_VERSION}}
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - rm -f {{.BIN_DIR}}/golangci-lint-{{.GOLANGCI_LINT_VERSION}}
+      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b {{.BIN_DIR}} {{.GOLANGCI_LINT_VERSION}}
+      - mv {{.BIN_DIR}}/golangci-lint {{.BIN_DIR}}/golangci-lint-{{.GOLANGCI_LINT_VERSION}}
