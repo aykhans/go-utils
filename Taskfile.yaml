@@ -14,7 +14,7 @@ tasks:
 
   tidy: go mod tidy {{.CLI_ARGS}}
 
-  test: go test ./... {{.CLI_ARGS}}
+  test: go test -race ./... {{.CLI_ARGS}}
 
   fmt:
     desc: Run linters

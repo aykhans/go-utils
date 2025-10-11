@@ -121,6 +121,29 @@ result := errors.HandleErrorOrDie(err,
 )  // Panics if err doesn't match any handler
 ```
 
+**HandleErrorOrDefault** - Handle errors with a default fallback
+```go
+result := errors.HandleErrorOrDefault(err,
+    func(e error) error {
+        // Default handler for unmatched errors
+        return fmt.Errorf("unexpected error: %w", e)
+    },
+    errors.OnSentinelError(context.Canceled, func(e error) error {
+        return fmt.Errorf("operation canceled")
+    }),
+    errors.OnCustomError(func(e *ValidationError) error {
+        return fmt.Errorf("validation failed: %w", e)
+    }),
+)
+
+// Pass nil to suppress unmatched errors
+result := errors.HandleErrorOrDefault(err, nil,
+    errors.OnSentinelError(io.EOF, func(e error) error {
+        return errors.New("EOF handled")
+    }),
+)  // Returns nil for unmatched errors
+```
+
 **OnSentinelError** - Create matcher for sentinel errors (like `io.EOF`)
 ```go
 matcher := errors.OnSentinelError(io.EOF, func(e error) error {

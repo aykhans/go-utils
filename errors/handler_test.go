@@ -251,6 +251,288 @@ func TestHandleErrorOrDie(t *testing.T) {
 	})
 }
 
+func TestHandleErrorOrDefault(t *testing.T) {
+	t.Run("HandleErrorOrDefault with nil error", func(t *testing.T) {
+		defaultCalled := false
+		result := HandleErrorOrDefault(
+			nil,
+			func(e error) error {
+				defaultCalled = true
+				return errors.New("default handler")
+			},
+		)
+		require.NoError(t, result)
+		assert.False(t, defaultCalled)
+	})
+
+	t.Run("HandleErrorOrDefault with matched error", func(t *testing.T) {
+		err := io.EOF
+		defaultCalled := false
+		result := HandleErrorOrDefault(
+			err,
+			func(e error) error {
+				defaultCalled = true
+				return errors.New("default handler")
+			},
+			OnSentinelError(io.EOF, func(e error) error {
+				return errors.New("handled EOF")
+			}),
+		)
+		require.EqualError(t, result, "handled EOF")
+		assert.False(t, defaultCalled)
+	})
+
+	t.Run("HandleErrorOrDefault with unmatched error calls default", func(t *testing.T) {
+		err := errors.New("unmatched error")
+		defaultCalled := false
+		var capturedErr error
+
+		result := HandleErrorOrDefault(
+			err,
+			func(e error) error {
+				defaultCalled = true
+				capturedErr = e
+				return fmt.Errorf("default: %w", e)
+			},
+			OnSentinelError(io.EOF, func(e error) error {
+				return errors.New("EOF handler")
+			}),
+		)
+
+		assert.True(t, defaultCalled)
+		assert.Equal(t, err, capturedErr)
+		assert.EqualError(t, result, "default: unmatched error")
+	})
+
+	t.Run("HandleErrorOrDefault with custom error match", func(t *testing.T) {
+		customErr := &CustomError{Code: 404, Message: "not found"}
+		defaultCalled := false
+
+		result := HandleErrorOrDefault(
+			customErr,
+			func(e error) error {
+				defaultCalled = true
+				return errors.New("default handler")
+			},
+			OnCustomError(func(e *CustomError) error {
+				return fmt.Errorf("custom handler: code=%d", e.Code)
+			}),
+		)
+
+		assert.False(t, defaultCalled)
+		assert.EqualError(t, result, "custom handler: code=404")
+	})
+
+	t.Run("HandleErrorOrDefault with custom error no match", func(t *testing.T) {
+		customErr := &CustomError{Code: 500, Message: "server error"}
+		defaultCalled := false
+
+		result := HandleErrorOrDefault(
+			customErr,
+			func(e error) error {
+				defaultCalled = true
+				return fmt.Errorf("default for custom: %v", e)
+			},
+			OnCustomError(func(e *ValidationError) error {
+				return errors.New("validation handler")
+			}),
+		)
+
+		assert.True(t, defaultCalled)
+		assert.EqualError(t, result, "default for custom: custom error 500: server error")
+	})
+
+	t.Run("HandleErrorOrDefault with multiple matchers", func(t *testing.T) {
+		validationErr := &ValidationError{Field: "email", Value: "invalid"}
+		defaultCalled := false
+
+		result := HandleErrorOrDefault(
+			validationErr,
+			func(e error) error {
+				defaultCalled = true
+				return errors.New("default handler")
+			},
+			OnSentinelError(io.EOF, func(e error) error {
+				return errors.New("EOF handler")
+			}),
+			OnCustomError(func(e *CustomError) error {
+				return errors.New("custom handler")
+			}),
+			OnCustomError(func(e *ValidationError) error {
+				return fmt.Errorf("validation handler: field=%s", e.Field)
+			}),
+		)
+
+		assert.False(t, defaultCalled)
+		assert.EqualError(t, result, "validation handler: field=email")
+	})
+
+	t.Run("HandleErrorOrDefault default returns nil", func(t *testing.T) {
+		err := errors.New("some error")
+		defaultCalled := false
+
+		result := HandleErrorOrDefault(
+			err,
+			func(e error) error {
+				defaultCalled = true
+				return nil // Default handler suppresses error
+			},
+			OnSentinelError(io.EOF, func(e error) error {
+				return errors.New("EOF handler")
+			}),
+		)
+
+		assert.True(t, defaultCalled)
+		assert.NoError(t, result)
+	})
+
+	t.Run("HandleErrorOrDefault with wrapped error", func(t *testing.T) {
+		wrappedErr := fmt.Errorf("wrapped: %w", io.EOF)
+		defaultCalled := false
+
+		result := HandleErrorOrDefault(
+			wrappedErr,
+			func(e error) error {
+				defaultCalled = true
+				return errors.New("default handler")
+			},
+			OnSentinelError(io.EOF, func(e error) error {
+				return errors.New("handled wrapped EOF")
+			}),
+		)
+
+		assert.False(t, defaultCalled)
+		assert.EqualError(t, result, "handled wrapped EOF")
+	})
+
+	t.Run("HandleErrorOrDefault with context errors", func(t *testing.T) {
+		// Test matched context.Canceled
+		defaultCalled := false
+		result1 := HandleErrorOrDefault(
+			context.Canceled,
+			func(e error) error {
+				defaultCalled = true
+				return errors.New("default handler")
+			},
+			OnSentinelError(context.Canceled, func(e error) error {
+				return errors.New("operation canceled")
+			}),
+		)
+		assert.False(t, defaultCalled)
+		require.EqualError(t, result1, "operation canceled")
+
+		// Test unmatched context.DeadlineExceeded
+		defaultCalled = false
+		result2 := HandleErrorOrDefault(
+			context.DeadlineExceeded,
+			func(e error) error {
+				defaultCalled = true
+				return errors.New("default: deadline exceeded")
+			},
+			OnSentinelError(context.Canceled, func(e error) error {
+				return errors.New("operation canceled")
+			}),
+		)
+		assert.True(t, defaultCalled)
+		assert.EqualError(t, result2, "default: deadline exceeded")
+	})
+
+	t.Run("HandleErrorOrDefault preserves error in default handler", func(t *testing.T) {
+		originalErr := &CustomError{Code: 403, Message: "forbidden"}
+		var capturedErr error
+
+		result := HandleErrorOrDefault(
+			originalErr,
+			func(e error) error {
+				capturedErr = e
+				return fmt.Errorf("default handled: %w", e)
+			},
+			OnCustomError(func(e *ValidationError) error {
+				return errors.New("validation handler")
+			}),
+		)
+
+		assert.Equal(t, originalErr, capturedErr)
+		assert.EqualError(t, result, "default handled: custom error 403: forbidden")
+	})
+
+	t.Run("HandleErrorOrDefault default handler can access error details", func(t *testing.T) {
+		customErr := &CustomError{Code: 500, Message: "internal error"}
+		wrappedErr := fmt.Errorf("operation failed: %w", customErr)
+
+		result := HandleErrorOrDefault(
+			wrappedErr,
+			func(e error) error {
+				// Default handler can still use errors.As to extract details
+				var ce *CustomError
+				if errors.As(e, &ce) {
+					return fmt.Errorf("default: found code %d", ce.Code)
+				}
+				return errors.New("default: unknown error")
+			},
+			OnSentinelError(io.EOF, func(e error) error {
+				return errors.New("EOF handler")
+			}),
+		)
+
+		assert.EqualError(t, result, "default: found code 500")
+	})
+
+	t.Run("HandleErrorOrDefault with nil default handler and no match", func(t *testing.T) {
+		err := errors.New("unmatched error")
+
+		result := HandleErrorOrDefault(
+			err,
+			nil, // nil default handler
+			OnSentinelError(io.EOF, func(e error) error {
+				return errors.New("EOF handler")
+			}),
+		)
+
+		assert.NoError(t, result) // Should return nil for unmatched errors
+	})
+
+	t.Run("HandleErrorOrDefault with nil default handler and match", func(t *testing.T) {
+		err := io.EOF
+
+		result := HandleErrorOrDefault(
+			err,
+			nil, // nil default handler (should not be called)
+			OnSentinelError(io.EOF, func(e error) error {
+				return errors.New("EOF handled")
+			}),
+		)
+
+		assert.EqualError(t, result, "EOF handled") // Should use the matcher, not default
+	})
+
+	t.Run("HandleErrorOrDefault with nil default handler and nil error", func(t *testing.T) {
+		result := HandleErrorOrDefault(
+			nil,
+			nil, // nil default handler
+			OnSentinelError(io.EOF, func(e error) error {
+				return errors.New("EOF handler")
+			}),
+		)
+
+		assert.NoError(t, result) // nil error should return nil
+	})
+
+	t.Run("HandleErrorOrDefault with nil default handler suppresses custom errors", func(t *testing.T) {
+		customErr := &CustomError{Code: 404, Message: "not found"}
+
+		result := HandleErrorOrDefault(
+			customErr,
+			nil, // nil default handler suppresses unmatched errors
+			OnCustomError(func(e *ValidationError) error {
+				return errors.New("validation handler")
+			}),
+		)
+
+		assert.NoError(t, result) // Should return nil since no matcher matches
+	})
+}
+
 func TestOnSentinelError(t *testing.T) {
 	t.Run("OnSentinelError creates proper matcher", func(t *testing.T) {
 		handler := func(e error) error { return e }

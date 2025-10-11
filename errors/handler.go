@@ -81,6 +81,45 @@ func HandleErrorOrDie(err error, matchers ...ErrorMatcher) error {
 	return err
 }
 
+// HandleErrorOrDefault processes an error against a list of matchers and executes the appropriate handler.
+// If a matching handler is found, it returns the handler's result.
+// If no matcher matches the error, it executes the default handler (dft) and returns its result.
+// If dft is nil, unmatched errors return nil (effectively suppressing the error).
+// This function is useful when you want to handle specific error cases explicitly
+// while providing a fallback handler for all other errors.
+//
+// Example:
+//
+//	result := HandleErrorOrDefault(err,
+//	    func(e error) error {
+//	        // Default handler for unmatched errors
+//	        return fmt.Errorf("unexpected error: %w", e)
+//	    },
+//	    OnSentinelError(context.Canceled, func(e error) error {
+//	        return fmt.Errorf("operation canceled")
+//	    }),
+//	    OnCustomError(func(e *ValidationError) error {
+//	        return fmt.Errorf("validation failed: %w", e)
+//	    }),
+//	)
+//
+//	// Suppress unmatched errors by passing nil as default handler
+//	result := HandleErrorOrDefault(err, nil,
+//	    OnSentinelError(io.EOF, func(e error) error {
+//	        return errors.New("EOF handled")
+//	    }),
+//	) // Returns nil for unmatched errors
+func HandleErrorOrDefault(err error, dft ErrorHandler, matchers ...ErrorMatcher) error {
+	ok, err := HandleError(err, matchers...)
+	if !ok {
+		if dft == nil {
+			return nil
+		}
+		return dft(err)
+	}
+	return err
+}
+
 // OnSentinelError creates an ErrorMatcher for sentinel errors.
 // Sentinel errors are predefined error values that are compared using errors.Is.
 //
