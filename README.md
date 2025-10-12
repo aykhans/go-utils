@@ -22,6 +22,20 @@ num := 42
 ptr := common.ToPtr(num)  // *int
 ```
 
+**IsNilOrZero** - Check if a pointer is nil or points to a zero value
+```go
+import "github.com/aykhans/go-utils/common"
+
+var ptr *int
+common.IsNilOrZero(ptr)  // true (nil pointer)
+
+num := 0
+common.IsNilOrZero(&num)  // true (zero value)
+
+num = 42
+common.IsNilOrZero(&num)  // false (non-zero value)
+```
+
 ### parser
 
 String parsing utilities with generic type support.
