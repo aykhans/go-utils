@@ -108,6 +108,27 @@ maps.UpdateMap(&old, new)
 // old is now: {"a": 1, "b": 3, "c": 4}
 ```
 
+### number
+
+Number utility functions.
+
+**NumLen** - Calculate the number of digits in an integer
+```go
+import "github.com/aykhans/go-utils/number"
+
+number.NumLen(42)      // returns 2
+number.NumLen(-128)    // returns 3
+number.NumLen(0)       // returns 1
+number.NumLen(1000)    // returns 4
+
+// Works with all integer types
+number.NumLen(int8(99))           // returns 2
+number.NumLen(int64(123456789))   // returns 9
+number.NumLen(uint32(4294967295)) // returns 10
+```
+
+Supported types: `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`, `uintptr`
+
 ### errors
 
 Advanced error handling utilities.
