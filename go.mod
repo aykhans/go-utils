@@ -1,4 +1,4 @@
-module github.com/aykhans/go-utils
+module go.aykhans.me/go-utils
 
 go 1.25.0
 

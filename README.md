@@ -5,7 +5,7 @@ A collection of generic utility functions for Go projects.
 ## Installation
 
 ```bash
-go get github.com/aykhans/go-utils
+go get go.aykhans.me/go-utils
 ```
 
 ## Packages
@@ -16,7 +16,7 @@ Generic type conversion utilities.
 
 **ToPtr** - Convert any value to a pointer
 ```go
-import "github.com/aykhans/go-utils/common"
+import "go.aykhans.me/go-utils/common"
 
 num := 42
 ptr := common.ToPtr(num)  // *int
@@ -24,7 +24,7 @@ ptr := common.ToPtr(num)  // *int
 
 **IsNilOrZero** - Check if a pointer is nil or points to a zero value
 ```go
-import "github.com/aykhans/go-utils/common"
+import "go.aykhans.me/go-utils/common"
 
 var ptr *int
 common.IsNilOrZero(ptr)  // true (nil pointer)
@@ -42,7 +42,7 @@ String parsing utilities with generic type support.
 
 **ParseString** - Parse string to various types
 ```go
-import "github.com/aykhans/go-utils/parser"
+import "go.aykhans.me/go-utils/parser"
 
 num, err := parser.ParseString[int]("42")
 duration, err := parser.ParseString[time.Duration]("5s")
@@ -72,7 +72,7 @@ Slice manipulation utilities.
 
 **Cycle** - Create an infinite cycler through items
 ```go
-import "github.com/aykhans/go-utils/slice"
+import "go.aykhans.me/go-utils/slice"
 
 next := slice.Cycle(1, 2, 3)
 fmt.Println(next())  // 1
@@ -93,7 +93,7 @@ Map utility functions.
 
 **InitMap** - Initialize a map pointer if nil
 ```go
-import "github.com/aykhans/go-utils/maps"
+import "go.aykhans.me/go-utils/maps"
 
 var m map[string]int
 maps.InitMap(&m)
@@ -114,7 +114,7 @@ Number utility functions.
 
 **NumLen** - Calculate the number of digits in an integer
 ```go
-import "github.com/aykhans/go-utils/number"
+import "go.aykhans.me/go-utils/number"
 
 number.NumLen(42)      // returns 2
 number.NumLen(-128)    // returns 3
@@ -135,7 +135,7 @@ Advanced error handling utilities.
 
 **HandleError** - Process errors with custom matchers
 ```go
-import "github.com/aykhans/go-utils/errors"
+import "go.aykhans.me/go-utils/errors"
 
 handled, result := errors.HandleError(err,
     errors.OnSentinelError(io.EOF, func(e error) error {
