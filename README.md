@@ -133,68 +133,68 @@ Supported types: `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uin
 
 Advanced error handling utilities.
 
-**HandleError** - Process errors with custom matchers
+**Handle** - Process errors with custom matchers
 ```go
 import "go.aykhans.me/go-utils/errors"
 
-handled, result := errors.HandleError(err,
-    errors.OnSentinelError(io.EOF, func(e error) error {
+handled, result := errors.Handle(err,
+    errors.OnSentinel(io.EOF, func(e error) error {
         return nil  // EOF is expected, ignore it
     }),
-    errors.OnCustomError(func(e *CustomError) error {
+    errors.OnType(func(e *CustomError) error {
         return fmt.Errorf("custom error: %w", e)
     }),
 )
 ```
 
-**HandleErrorOrDie** - Handle errors or panic if unhandled
+**MustHandle** - Handle errors or panic if unhandled
 ```go
-result := errors.HandleErrorOrDie(err,
-    errors.OnSentinelError(context.Canceled, func(e error) error {
+result := errors.MustHandle(err,
+    errors.OnSentinel(context.Canceled, func(e error) error {
         return fmt.Errorf("operation canceled")
     }),
 )  // Panics if err doesn't match any handler
 ```
 
-**HandleErrorOrDefault** - Handle errors with a default fallback
+**HandleOr** - Handle errors with a default fallback
 ```go
-result := errors.HandleErrorOrDefault(err,
+result := errors.HandleOr(err,
     func(e error) error {
         // Default handler for unmatched errors
         return fmt.Errorf("unexpected error: %w", e)
     },
-    errors.OnSentinelError(context.Canceled, func(e error) error {
+    errors.OnSentinel(context.Canceled, func(e error) error {
         return fmt.Errorf("operation canceled")
     }),
-    errors.OnCustomError(func(e *ValidationError) error {
+    errors.OnType(func(e *ValidationError) error {
         return fmt.Errorf("validation failed: %w", e)
     }),
 )
 
 // Pass nil to suppress unmatched errors
-result := errors.HandleErrorOrDefault(err, nil,
-    errors.OnSentinelError(io.EOF, func(e error) error {
+result := errors.HandleOr(err, nil,
+    errors.OnSentinel(io.EOF, func(e error) error {
         return errors.New("EOF handled")
     }),
 )  // Returns nil for unmatched errors
 ```
 
-**OnSentinelError** - Create matcher for sentinel errors (like `io.EOF`)
+**OnSentinel** - Create matcher for sentinel errors (like `io.EOF`)
 ```go
-matcher := errors.OnSentinelError(io.EOF, func(e error) error {
+matcher := errors.OnSentinel(io.EOF, func(e error) error {
     log.Println("reached end of file")
     return nil
 })
 ```
 
-**OnCustomError** - Create matcher for custom error types
+**OnType** - Create matcher for custom error types
 ```go
 type ValidationError struct {
     Field string
     Msg   string
 }
 
-matcher := errors.OnCustomError(func(e *ValidationError) error {
+matcher := errors.OnType(func(e *ValidationError) error {
     log.Printf("validation failed on field %s", e.Field)
     return fmt.Errorf("invalid input: %w", e)
 })
